@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Prediction Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background: #1a1b26;
+            --foreground: #c0caf5;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --yellow: #e0af68;
+            --blue: #7aa2f7;
+            --magenta: #bb9af7;
+            --cyan: #7dcfff;
+            --border: #414868;
+        }
+
+        body {
+            font-family: 'Fira Code', monospace;
+            background-color: var(--background);
+            color: var(--foreground);
+        }
+
+        .terminal-window {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            background-color: #24283b; /* Slightly lighter for contrast */
+        }
+
+        .terminal-header {
+            background-color: var(--border);
+            padding: 8px 12px;
+            border-top-left-radius: 7px;
+            border-top-right-radius: 7px;
+        }
+
+        .terminal-title {
+            color: var(--foreground);
+            font-weight: 700;
+        }
+
+        .terminal-button {
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .input-prompt::before {
+            content: 'user@prediction:~$ ';
+            color: var(--green);
+        }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--foreground);
+            caret-color: var(--green);
+            width: 100%;
+        }
+
+        .output-line {
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+            white-space: pre-wrap;
+        }
+        
+        .history-item {
+            border-bottom: 1px dashed var(--border);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Custom scrollbar for a better terminal feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--background);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #565f89;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="terminal-window max-w-4xl mx-auto overflow-hidden">
+        <!-- Terminal Header -->
+        <div class="terminal-header flex items-center gap-2">
+            <div class="terminal-button" style="background-color: #f7768e;"></div>
+            <div class="terminal-button" style="background-color: #e0af68;"></div>
+            <div class="terminal-button" style="background-color: #9ece6a;"></div>
+            <p class="terminal-title ml-2">/bin/predict</p>
+        </div>
+
+        <!-- Terminal Body -->
+        <div class="p-4 md:p-6 h-[80vh] flex flex-col gap-6">
+            
+            <div class="flex-grow flex flex-col md:flex-row gap-4 overflow-hidden">
+                <!-- Left Panel: Controls & Predictions -->
+                <div class="md:w-1/2 flex flex-col gap-4">
+                    <!-- Input Section -->
+                    <div>
+                        <label for="periodInput" class="text-lg font-bold text-cyan-400">Enter Period Number</label>
+                        <div class="mt-2 p-2 rounded-md bg-gray-900/50 border border-gray-700">
+                            <span class="input-prompt"></span>
+                            <input type="number" id="periodInput" placeholder="e.g., 20250910133" class="terminal-input">
+                        </div>
+                        <button id="predictBtn" class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-all duration-300">
+                            Analyze & Predict
+                        </button>
+                    </div>
+
+                    <!-- Prediction Output -->
+                    <div id="predictionOutput" class="p-4 rounded-md bg-gray-900/50 border border-gray-700 flex-grow">
+                        <h3 class="text-lg font-bold border-b border-gray-700 pb-2 mb-2 text-yellow-400">AI Prediction Analysis</h3>
+                        <div id="outputContent" class="text-sm space-y-2">
+                           <p class="text-gray-400">Awaiting input...</p>
+                        </div>
+                    </div>
+
+                    <!-- Add New Result -->
+                    <div class="p-4 rounded-md bg-gray-900/50 border border-gray-700">
+                         <h3 class="text-lg font-bold text-magenta-400">Update Database</h3>
+                         <p class="text-xs text-gray-400 mb-2">Add the last official result to improve AI accuracy.</p>
+                         <div class="flex gap-2">
+                             <input type="number" id="newPeriodInput" placeholder="Full Period No." class="terminal-input w-1/2 bg-gray-800 p-2 rounded-md border border-gray-600">
+                             <input type="number" id="newResultInput" placeholder="Result (0-9)" min="0" max="9" class="terminal-input w-1/4 bg-gray-800 p-2 rounded-md border border-gray-600">
+                             <button id="addResultBtn" class="w-1/4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition-all">Add</button>
+                         </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Data & History -->
+                <div class="md:w-1/2 flex flex-col rounded-md bg-gray-900/50 border border-gray-700 overflow-hidden">
+                    <h3 class="text-lg font-bold p-3 border-b border-gray-700 text-yellow-400">Historical Data Log</h3>
+                    <div id="historyLog" class="flex-grow p-3 space-y-2 overflow-y-auto text-sm">
+                        <!-- History items will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Footer -->
+            <div class="text-xs text-center border-t border-gray-700 pt-2 text-gray-500">
+                <span>Status: <span class="text-green-400">Connected</span></span> |
+                <span>Game UID: <span class="text-gray-400" id="gameUID"></span></span> |
+                <span>Data Points: <span id="dataCount" class="text-gray-400">0</span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- CONFIGURATION ---
+            // Placeholders have been updated with example data for a working demonstration.
+            const SERVER_LINK = "https://api.example.com/color_game_data";
+            const GAME_UID = "CG-AL78-9PQR"; 
+
+            // --- DOM ELEMENTS ---
+            const periodInput = document.getElementById('periodInput');
+            const predictBtn = document.getElementById('predictBtn');
+            const outputContent = document.getElementById('outputContent');
+            const newPeriodInput = document.getElementById('newPeriodInput');
+            const newResultInput = document.getElementById('newResultInput');
+            const addResultBtn = document.getElementById('addResultBtn');
+            const historyLog = document.getElementById('historyLog');
+            const dataCount = document.getElementById('dataCount');
+            
+            document.getElementById('gameUID').textContent = GAME_UID;
+            
+            // --- DATABASE SIMULATION ---
+            // This is a local dataset for demonstration. In a real application,
+            // this data would be fetched from the SERVER_LINK.
+            let historicalData = [
+                { period: 20250910121, result: 9 }, // Red, Big
+                { period: 20250910122, result: 4 }, // Green, Small
+                { period: 20250910123, result: 3 }, // Red, Small
+                { period: 20250910124, result: 8 }, // Green, Big
+                { period: 20250910125, result: 1 }, // Red, Small
+                { period: 20250910126, result: 6 }, // Green, Big
+                { period: 20250910127, result: 5 }, // Red, Big
+                { period: 20250910128, result: 2 }, // Green, Small
+                { period: 20250910129, result: 7 }, // Red, Big
+                { period: 20250910130, result: 0 }, // Green, Small
+                { period: 20250910131, result: 8 }, // Green, Big
+                { period: 20250910132, result: 3 }, // Red, Small
+            ];
+
+            // --- CORE FUNCTIONS ---
+
+            const getResultProperties = (number) => {
+                const size = number >= 5 ? 'Big' : 'Small';
+                const color = [2, 4, 6, 8, 0].includes(number) ? 'Green' : 'Red'; 
+                return { size, color, number };
+            };
+
+            const renderHistory = () => {
+                historyLog.innerHTML = '';
+                const reversedData = [...historicalData].reverse();
+                reversedData.forEach(item => {
+                    const props = getResultProperties(item.result);
+                    const colorClass = props.color === 'Green' ? 'text-green-400' : 'text-red-400';
+                    const sizeClass = props.size === 'Big' ? 'text-blue-400' : 'text-yellow-400';
+
+                    const div = document.createElement('div');
+                    div.className = 'history-item flex justify-between items-center p-2 output-line';
+                    div.innerHTML = `
+                        <span>#${String(item.period).slice(-3)}</span>
+                        <span class="font-bold text-xl ${colorClass}">${props.number}</span>
+                        <div>
+                            <span class="${colorClass}">${props.color}</span> / 
+                            <span class="${sizeClass}">${props.size}</span>
+                        </div>
+                    `;
+                    historyLog.appendChild(div);
+                });
+                dataCount.textContent = historicalData.length;
+            };
+
+            const addResultToDatabase = () => {
+                const period = parseInt(newPeriodInput.value);
+                const result = parseInt(newResultInput.value);
+
+                if (!period || isNaN(result) || result < 0 || result > 9) {
+                    alert('Invalid input. Please enter a valid period and a result from 0 to 9.');
+                    return;
+                }
+                
+                if (historicalData.some(item => item.period === period)) {
+                    alert(`Period ${period} already exists in the database.`);
+                    return;
+                }
+
+                historicalData.push({ period, result });
+                historicalData.sort((a, b) => a.period - b.period); 
+                
+                newPeriodInput.value = '';
+                newResultInput.value = '';
+
+                renderHistory();
+                console.log(`Added Period: ${period}, Result: ${result}. Database updated.`);
+                // In a real app, you would POST this to your server.
+                // fetch(SERVER_LINK, { method: 'POST', body: JSON.stringify({ period, result, uid: GAME_UID }) });
+            };
+
+            // --- PREDICTION ALGORITHM ("AI") ---
+            const getPrediction = (inputPeriod) => {
+                const lastThreeDigits = inputPeriod % 1000;
+                let scores = { Big: 0, Small: 0, Red: 0, Green: 0 };
+                let reasoning = [];
+                
+                if(historicalData.length < 5) {
+                    return { prediction: "Not enough data", reason: "Need at least 5 data points for an accurate prediction." };
+                }
+
+                const recentData = historicalData.slice(-10).map(d => getResultProperties(d.result));
+
+                // 1. Trend Analysis (Last 5 results)
+                const last5 = recentData.slice(-5);
+                const bigCount = last5.filter(d => d.size === 'Big').length;
+                const redCount = last5.filter(d => d.color === 'Red').length;
+                
+                if (bigCount >= 4) { scores.Big += 2; reasoning.push("Strong 'Big' trend (>=4 of last 5)."); }
+                if (bigCount <= 1) { scores.Small += 2; reasoning.push("Strong 'Small' trend (>=4 of last 5)."); }
+                if (redCount >= 4) { scores.Red += 2; reasoning.push("Strong 'Red' trend (>=4 of last 5)."); }
+                if (redCount <= 1) { scores.Green += 2; reasoning.push("Strong 'Green' trend (>=4 of last 5)."); }
+
+                // 2. Hard Pattern Analysis (Alternating patterns)
+                const last4 = recentData.slice(-4);
+                if (last4.length === 4) {
+                    if (last4[0].size === 'Big' && last4[1].size === 'Small' && last4[2].size === 'Big' && last4[3].size === 'Small') {
+                        scores.Big += 3; reasoning.push("Pattern detected: B-S-B-S. Predicting Big.");
+                    }
+                    if (last4[0].size === 'Small' && last4[1].size === 'Big' && last4[2].size === 'Small' && last4[3].size === 'Big') {
+                        scores.Small += 3; reasoning.push("Pattern detected: S-B-S-B. Predicting Small.");
+                    }
+                    if (last4[0].color === 'Red' && last4[1].color === 'Green' && last4[2].color === 'Red' && last4[3].color === 'Green') {
+                        scores.Red += 3; reasoning.push("Pattern detected: R-G-R-G. Predicting Red.");
+                    }
+                     if (last4[0].color === 'Green' && last4[1].color === 'Red' && last4[2].color === 'Green' && last4[3].color === 'Red') {
+                        scores.Green += 3; reasoning.push("Pattern detected: G-R-G-R. Predicting Green.");
+                    }
+                }
+                
+                // 3. Last Digit Influence
+                const lastDigitOfPeriod = lastThreeDigits % 10;
+                if ([0, 2, 4, 6, 8].includes(lastDigitOfPeriod)) {
+                    scores.Green += 1;
+                    reasoning.push(`Period ends in an even number (${lastDigitOfPeriod}), slightly favoring Green.`);
+                } else {
+                    scores.Red += 1;
+                    reasoning.push(`Period ends in an odd number (${lastDigitOfPeriod}), slightly favoring Red.`);
+                }
+                
+                // Final Decision
+                const predictedSize = scores.Big > scores.Small ? 'Big' : 'Small';
+                const predictedColor = scores.Red > scores.Green ? 'Red' : 'Green';
+
+                return {
+                    size: predictedSize,
+                    color: predictedColor,
+                    reason: reasoning.join('\n- '),
+                    scores: scores
+                };
+            };
+            
+            const handlePrediction = () => {
+                const period = periodInput.value;
+                if (!period || period.length < 3) {
+                     alert('Please enter a valid period number.');
+                     return;
+                }
+                
+                const prediction = getPrediction(parseInt(period));
+
+                const sizeColor = prediction.size === 'Big' ? 'var(--blue)' : 'var(--yellow)';
+                const colorColor = prediction.color === 'Red' ? 'var(--red)' : 'var(--green)';
+
+                outputContent.innerHTML = `
+                    <div class="output-line">
+                        <p class="text-gray-300">Analysis for Period ending in <span class="text-white font-bold">${period.slice(-3)}</span>:</p>
+                    </div>
+                    <div class="output-line mt-4 text-center">
+                        <p class="text-xl">Next Result Prediction:</p>
+                        <p class="text-4xl font-bold" style="color:${sizeColor};">${prediction.size}</p>
+                        <p class="text-xl">Suggested Color:</p>
+                        <p class="text-4xl font-bold" style="color:${colorColor};">${prediction.color}</p>
+                    </div>
+                    <div class="output-line mt-4">
+                        <p class="font-bold text-gray-300">Reasoning:</p>
+                        <pre class="text-xs text-gray-400 whitespace-pre-wrap">- ${prediction.reason || 'Based on general trends.'}</pre>
+                    </div>
+                    <div class="output-line mt-2 text-xs text-gray-500">
+                        Scores: Big(${prediction.scores?.Big || 0}), Small(${prediction.scores?.Small || 0}), Red(${prediction.scores?.Red || 0}), Green(${prediction.scores?.Green || 0})
+                    </div>
+                `;
+            };
+
+            // --- EVENT LISTENERS ---
+            predictBtn.addEventListener('click', handlePrediction);
+            periodInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') handlePrediction();
+            });
+
+            addResultBtn.addEventListener('click', addResultToDatabase);
+             newResultInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') addResultToDatabase();
+            });
+
+            // --- INITIALIZATION ---
+            renderHistory();
+            console.log("Terminal initialized. Awaiting user input.");
+            console.log(`Connecting to server (simulation): ${SERVER_LINK}`);
+        });
+    </script>
+</body>
+</html>
+
+
